@@ -31,7 +31,6 @@
 *.exe
 *.out
 *.app
-nachos
 
 ### VisualStudioCode ###
 .vscode/
@@ -46,3 +45,14 @@ nachos
 # Ignore all local history of files
 .history
 .ionide
+
+### NachOS ###
+# Executables
+nachos
+coff2noff
+
+# MIPS files
+*.s
+!**/threads/switch.s
+!**/threads/switch-old.s
+!**/test/start.s
