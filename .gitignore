@@ -48,11 +48,17 @@
 
 ### NachOS ###
 # Executables
+*.coff
 nachos
 coff2noff
+test
+
 
 # MIPS files
 *.s
 !**/threads/switch.s
 !**/threads/switch-old.s
 !**/test/start.s
+
+# others
+makedep
