@@ -536,9 +536,9 @@ bitmap.o: ../userprog/bitmap.cc /usr/include/stdc-predef.h \
  /usr/include/i386-linux-gnu/bits/types/__locale_t.h \
  /usr/include/strings.h ../filesys/openfile.h
 exception.o: ../userprog/exception.cc /usr/include/stdc-predef.h \
- ../threads/copyright.h ../threads/system.h ../threads/copyright.h \
- ../threads/utility.h ../threads/bool.h ../machine/sysdep.h \
- /usr/include/stdio.h \
+ ../threads/copyright.h ../userprog/syscall.h ../threads/system.h \
+ ../threads/copyright.h ../threads/utility.h ../threads/bool.h \
+ ../machine/sysdep.h /usr/include/stdio.h \
  /usr/include/i386-linux-gnu/bits/libc-header-start.h \
  /usr/include/features.h /usr/include/i386-linux-gnu/sys/cdefs.h \
  /usr/include/i386-linux-gnu/bits/wordsize.h \
@@ -566,7 +566,7 @@ exception.o: ../userprog/exception.cc /usr/include/stdc-predef.h \
  ../threads/list.h ../machine/stats.h ../machine/timer.h \
  ../filesys/synchdisk.h ../machine/disk.h ../threads/synch.h \
  ../network/post.h ../machine/network.h ../threads/synchlist.h \
- ../threads/synch.h ../userprog/syscall.h
+ ../threads/synch.h
 progtest.o: ../userprog/progtest.cc /usr/include/stdc-predef.h \
  ../threads/copyright.h ../threads/system.h ../threads/copyright.h \
  ../threads/utility.h ../threads/bool.h ../machine/sysdep.h \
