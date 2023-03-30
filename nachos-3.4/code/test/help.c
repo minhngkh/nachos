@@ -15,4 +15,6 @@ int main() {
     PrintString("1. sort: User inputs size of an array and its elements, the program then sorts it using bubble sort and displays the result on the screen.\n");
     PrintString("2. ascii: Display a table of all visible ascii characters on the screen.\n");
 
+    PrintString("\n");
+    Halt();
 }
