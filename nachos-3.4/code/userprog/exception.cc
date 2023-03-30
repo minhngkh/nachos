@@ -25,6 +25,75 @@
 #include "syscall.h"
 #include "system.h"
 
+#include <ctype.h>
+
+#define BUFFER_SIZE 256
+
+//----------------------------------------------------------------------
+// Helper functions
+//----------------------------------------------------------------------
+
+/**
+ * @brief Copy buffer from user memory space to kernel memory space
+ *
+ * @param virtAddr User memory space address
+ * @param limit Limit of buffer
+ * @return char* Kernel buffer
+ * 
+ * @ref [3] Cach Viet Mot SystemCall.pdf
+ */
+char *User2System(int virtAddr, int limit) {
+    int i; // index
+    int oneChar;
+    char *kernelBuf = NULL;
+
+    kernelBuf = new char[limit + 1]; // need for terminal string
+
+    if (kernelBuf == NULL)
+        return kernelBuf;
+
+    memset(kernelBuf, 0, limit + 1);
+
+    // printf("\n Filename u2s:");
+
+    for (i = 0; i < limit; i++) {
+        machine->ReadMem(virtAddr + i, 1, &oneChar);
+        kernelBuf[i] = (char)oneChar;
+        // printf("%c",kernelBuf[i]);
+        if (oneChar == 0)
+            break;
+    }
+
+    return kernelBuf;
+}
+
+/**
+ * @brief Copy buffer from kernel memory space to user memory space
+ *
+ * @param virtAddr User memory space address
+ * @param len Length of buffer
+ * @param buffer Kernel buffer
+ * @return int Number of bytes copied
+ * 
+ * @ref [3] Cach Viet Mot SystemCall-1.pdf
+ */
+int System2User(int virtAddr, int len, char *buffer) {
+    if (len < 0)
+        return -1;
+    if (len == 0)
+        return len;
+
+    int i = 0;
+    int oneChar = 0;
+    do {
+        oneChar = (int)buffer[i];
+        machine->WriteMem(virtAddr + i, 1, oneChar);
+        i++;
+    } while (i < len && oneChar != 0);
+
+    return i;
+}
+
 /**
  * @brief Increment the program counter
  *
@@ -43,23 +112,93 @@ void IncrementPC() {
 // Each individual system call handler
 //----------------------------------------------------------------------
 void HandleHaltSyscall() {
-    DEBUG('a', "Shutdown, initiated by user program.\n");
+    DEBUG('a', "\nShutdown, initiated by user program.\n");
     interrupt->Halt();
 }
 
 void HandleReadIntSyscall() {
-    printf("test");
+    char buffer[BUFFER_SIZE];
+    int actualSize = gSynchConsole->Read(buffer, BUFFER_SIZE);
+
+    int value = atoi(buffer);
+
+    char valueStr[actualSize];
+
+    sprintf(valueStr, "%d", value);
+
+    // Check for any error by reverse compare (not the most efficient)
+    // e.g. over/underflow, trailing non-digit character, empty,...
+    // Note that -0 will fail this check but luckily the return value of error read is also 0
+    if (strcmp(buffer, valueStr) != 0) {
+
+        DEBUG('a', "\nInvalid number\n");
+        machine->WriteRegister(2, 0);
+        return;
+    }
+
+    DEBUG('a', "\nValid Number: %d\n", value);
+    machine->WriteRegister(2, value);
 }
 
-void HandlePrintIntSyscall() {}
+void HandlePrintIntSyscall() {
+    int num = machine->ReadRegister(4);
 
-void HandleReadCharSyscall() {}
+    char numStr[BUFFER_SIZE];
+    sprintf(numStr, "%d", num);
 
-void HandlePrintCharSyscall() {}
+    gSynchConsole->Write(numStr, strlen(numStr));
+}
 
-void HandleReadStringSyscall() {}
+void HandleReadCharSyscall() {
+    // Set the default value in case the user enter nothing
+    char c = '\0';
+    gSynchConsole->Read(&c, 1);
 
-void HandlePrintStringSyscall() {}
+    DEBUG('a', "\nRead char: %c\n", c);
+    machine->WriteRegister(2, c);
+}
+
+void HandlePrintCharSyscall() {
+    char c = machine->ReadRegister(4);
+    gSynchConsole->Write(&c, 1);
+}
+
+void HandleReadStringSyscall() {
+    int addr = machine->ReadRegister(4);
+    int size = machine->ReadRegister(5);
+
+    // +1 to reserve space for the null terminator
+    char buffer[size + 1];
+    int actualSize = gSynchConsole->Read(buffer, size);
+
+    // Add the null terminator to the end of string
+    buffer[actualSize] = '\0';
+
+    // Copy the string to the user space
+    System2User(addr, actualSize, buffer);
+}
+
+void HandlePrintStringSyscall() {
+    int addr = machine->ReadRegister(4);
+    char *buffer;
+    int size = 0;
+
+    while (true) {
+        DEBUG('a', "\nWriting...");
+        buffer = User2System(addr + size, BUFFER_SIZE);
+        gSynchConsole->Write(buffer, strlen(buffer));
+
+        
+        // Keep printing if the buffer is still full
+        if (strlen(buffer) == BUFFER_SIZE) {
+            size += BUFFER_SIZE;
+        } else {
+            break;
+        }
+    }
+
+    delete buffer;
+}
 
 //----------------------------------------------------------------------
 // Each individual exception handler
@@ -107,12 +246,12 @@ void HandleSyscallException() {
     case SC_Close:
     case SC_Fork:
     case SC_Yield:
-        printf("Unimplemented system call #%d\n", type);
+        printf("\nUnimplemented system call. Code: %d\n", type);
         interrupt->Halt();
         break;
 
     default:
-        printf("Unexpected system call %d\n", type);
+        printf("\nUnexpected system call. Code: %d\n", type);
         interrupt->Halt();
         break;
     }
@@ -122,44 +261,44 @@ void HandleSyscallException() {
 }
 
 void HandlePageFaultException() {
-    DEBUG('a', "Page fault exception.\n");
-    printf("No valid translation found.\n");
+    DEBUG('a', "\nPage fault exception.");
+    printf("\nNo valid translation found.\n");
     interrupt->Halt();
 }
 
 void HandleReadOnlyException() {
-    DEBUG('a', "Read-only exception.\n");
-    printf("Write attempted to page marked \"read-only\".\n");
+    DEBUG('a', "\nRead-only exception.");
+    printf("\nWrite attempted to page marked \"read-only\".\n");
     interrupt->Halt();
 }
 
 void HandleBusErrorException() {
-    DEBUG('a', "Bus error exception.\n");
-    printf("Translation resulted in an invalid physical address.\n");
+    DEBUG('a', "\nBus error exception.");
+    printf("\nTranslation resulted in an invalid physical address.\n");
     interrupt->Halt();
 }
 
 void HandleAddressErrorException() {
-    DEBUG('a', "Address error exception.\n");
-    printf("Unaligned reference or one that was beyond the end of the address space.\n");
+    DEBUG('a', "\nAddress error exception.");
+    printf("\nUnaligned reference or one that was beyond the end of the address space.\n");
     interrupt->Halt();
 }
 
 void HandleOverflowException() {
-    DEBUG('a', "Overflow exception.\n");
-    printf("Integer overflow in add or sub.\n");
+    DEBUG('a', "\nOverflow exception.");
+    printf("\nInteger overflow in add or sub.\n");
     interrupt->Halt();
 }
 
 void HandleIllegalInstrException() {
-    DEBUG('a', "Illegal instruction exception.\n");
-    printf("Unimplemented or reserved instruction.\n");
+    DEBUG('a', "\nIllegal instruction exception.");
+    printf("\nUnimplemented or reserved instruction.\n");
     interrupt->Halt();
 }
 
 void HandleNumExceptionTypes() {
-    DEBUG('a', "Number exception types.\n");
-    printf("Number exception types.\n");
+    DEBUG('a', "\nNumber exception types.");
+    printf("\nNumber exception types.\n");
     interrupt->Halt();
 }
 
@@ -237,7 +376,7 @@ void ExceptionHandler(ExceptionType which) {
 
     default:
         int type = machine->ReadRegister(2);
-        printf("Unexpected user mode exception %d %d\n", which, type);
+        printf("\nUnexpected user mode exception %d %d\n", which, type);
         interrupt->Halt();
         break;
     }
