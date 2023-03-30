@@ -12,7 +12,7 @@ int main() {
     PrintString("5. 21127591 - Nguyen Hien Dat\n");
     PrintString("--------------------------------------\n");
     PrintString("Programs:\n");
-    PrintString("1. sort: User input size of an array and its elements, the program then sort it using bubble sort and display the result on the screen.\n");
+    PrintString("1. sort: User inputs size of an array and its elements, the program then sorts it using bubble sort and displays the result on the screen.\n");
     PrintString("2. ascii: Display a table of all visible ascii characters on the screen.\n");
 
 }
