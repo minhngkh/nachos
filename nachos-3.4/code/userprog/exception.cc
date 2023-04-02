@@ -197,18 +197,24 @@ void HandlePrintStringSyscall() {
     while (true) {
         DEBUG('a', "\nWriting...");
         buffer = User2System(addr + size, BUFFER_SIZE);
+
+        // Nothing to write
+        if (strlen(buffer) == 0) {
+            delete buffer;
+            break;
+        }
+
         gSynchConsole->Write(buffer, strlen(buffer));
 
-        
         // Keep printing if the buffer is still full
         if (strlen(buffer) == BUFFER_SIZE) {
             size += BUFFER_SIZE;
+            delete buffer;
         } else {
+            delete buffer;
             break;
         }
     }
-
-    delete buffer;
 }
 
 //----------------------------------------------------------------------
