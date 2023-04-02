@@ -167,15 +167,26 @@ void HandleReadStringSyscall() {
     int addr = machine->ReadRegister(4);
     int size = machine->ReadRegister(5);
 
+    if (size < 0) {
+        printf("\nInvalid size\n");
+        interrupt->Halt();
+    }
+    char *buffer = new char[size + 1];
+
     // +1 to reserve space for the null terminator
-    char buffer[size + 1];
+    memset(buffer, 0, size + 1);
+
     int actualSize = gSynchConsole->Read(buffer, size);
 
     // Add the null terminator to the end of string
     buffer[actualSize] = '\0';
 
+    DEBUG('a', "\nRead string: %s\n", buffer);
+
     // Copy the string to the user space
-    System2User(addr, actualSize, buffer);
+    System2User(addr, actualSize + 1, buffer);
+
+    delete buffer;
 }
 
 void HandlePrintStringSyscall() {
