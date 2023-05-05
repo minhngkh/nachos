@@ -40,6 +40,7 @@ Thread::Thread(char* threadName)
     status = JUST_CREATED;
 #ifdef USER_PROGRAM
     space = NULL;
+    fTab = new FDTable();
 #endif
 }
 
@@ -62,6 +63,11 @@ Thread::~Thread()
     ASSERT(this != currentThread);
     if (stack != NULL)
 	DeallocBoundedArray((char *) stack, StackSize * sizeof(int));
+
+#ifdef USER_PROGRAM
+    delete space;
+    delete fTab;
+#endif
 }
 
 //----------------------------------------------------------------------

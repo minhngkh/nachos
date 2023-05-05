@@ -37,6 +37,8 @@
 #define SC_ReadString   15
 #define SC_PrintString  16
 
+#define SC_CreateFile 17
+
 #ifndef IN_ASM
 
 /* The system call interface.  These are the operations the Nachos
@@ -51,6 +53,7 @@
 
 /* Stop Nachos, and print out performance stats */
 void Halt();		
+ 
  
 
 /* Address space control operations: Exit, Exec, and Join */
@@ -69,10 +72,11 @@ SpaceId Exec(char *name);
 /* Only return once the the user program "id" has finished.  
  * Return the exit status.
  */
-int Join(SpaceId id); 	
- 
+int Join(SpaceId id);
 
-/* File system operations: Create, Open, Read, Write, Close
+
+
+/* File system operations: CreateFile, Open, Close, Read, Write
  * These functions are patterned after UNIX -- files represent
  * both files *and* hardware I/O devices.
  *
@@ -80,7 +84,7 @@ int Join(SpaceId id);
  * note that the Nachos file system has a stub implementation, which
  * will work for the purposes of testing out these routines.
  */
- 
+
 /* A unique identifier for an open Nachos file. */
 typedef int OpenFileId;	
 
@@ -94,26 +98,26 @@ typedef int OpenFileId;
 #define ConsoleOutput	1  
  
 /* Create a Nachos file, with "name" */
-void Create(char *name);
+void CreateFile(char *name);
 
-/* Open the Nachos file "name", and return an "OpenFileId" that can 
- * be used to read and write to the file.
+/* Open the Nachos file "name" with "type" 0 (read & write) or 1 (read-only), and return an
+ * "OpenFileId" that can be used to read and write to the file.
  */
-OpenFileId Open(char *name);
+OpenFileId Open(char *name, int type);
 
-/* Write "size" bytes from "buffer" to the open file. */
-void Write(char *buffer, int size, OpenFileId id);
+/* Close the file, we're done reading and writing to it. */
+void Close(OpenFileId id);
 
-/* Read "size" bytes from the open file into "buffer".  
+/* Write "charcount" bytes from "buffer" to the open file. */
+void Write(char *buffer, int charcount, OpenFileId id);
+
+/* Read "charcount" bytes from the open file into "buffer".  
  * Return the number of bytes actually read -- if the open file isn't
  * long enough, or if it is an I/O device, and there aren't enough 
  * characters to read, return whatever is available (for I/O devices, 
  * you should always wait until you can return at least one character).
  */
-int Read(char *buffer, int size, OpenFileId id);
-
-/* Close the file, we're done reading and writing to it. */
-void Close(OpenFileId id);
+int Read(char *buffer, int charcount, OpenFileId id);
 
 
 

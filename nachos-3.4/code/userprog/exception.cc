@@ -28,6 +28,7 @@
 #include <ctype.h>
 
 #define BUFFER_SIZE 256
+#define MAX_FILENAME_LENGTH 255
 
 //----------------------------------------------------------------------
 // Helper functions
@@ -112,7 +113,7 @@ void IncrementPC() {
 // Each individual system call handler
 //----------------------------------------------------------------------
 void HandleHaltSyscall() {
-    DEBUG('a', "\nShutdown, initiated by user program.\n");
+    DEBUG(dbgCustom, "\nShutdown, initiated by user program.\n");
     interrupt->Halt();
 }
 
@@ -131,12 +132,12 @@ void HandleReadIntSyscall() {
     // Note that -0 will fail this check but luckily the return value of error read is also 0
     if (strcmp(buffer, valueStr) != 0) {
 
-        DEBUG('a', "\nInvalid number\n");
+        DEBUG(dbgCustom, "\nInvalid number\n");
         machine->WriteRegister(2, 0);
         return;
     }
 
-    DEBUG('a', "\nValid Number: %d\n", value);
+    DEBUG(dbgCustom, "\nValid Number: %d\n", value);
     machine->WriteRegister(2, value);
 }
 
@@ -154,7 +155,7 @@ void HandleReadCharSyscall() {
     char c = '\0';
     gSynchConsole->Read(&c, 1);
 
-    DEBUG('a', "\nRead char: %c\n", c);
+    DEBUG(dbgCustom, "\nRead char: %c\n", c);
     machine->WriteRegister(2, c);
 }
 
@@ -181,7 +182,7 @@ void HandleReadStringSyscall() {
     // Add the null terminator to the end of string
     buffer[actualSize] = '\0';
 
-    DEBUG('a', "\nRead string: %s\n", buffer);
+    DEBUG(dbgCustom, "\nRead string: %s\n", buffer);
 
     // Copy the string to the user space
     System2User(addr, actualSize + 1, buffer);
@@ -195,7 +196,7 @@ void HandlePrintStringSyscall() {
     int size = 0;
 
     while (true) {
-        DEBUG('a', "\nWriting...");
+        DEBUG(dbgCustom, "\nWriting...");
         buffer = User2System(addr + size, BUFFER_SIZE);
 
         // Nothing to write
@@ -217,11 +218,152 @@ void HandlePrintStringSyscall() {
     }
 }
 
+
+/**
+ * @brief Handle CreateFile syscall
+ * 
+ * @input:
+ *  - r4 (addr): name 
+ * @output:
+ *  - r2: 0 if successful, -1 if failed
+ * 
+ * @ref schandle.rar -> schandle.cc
+ */
+void HandleCreateFileSyscall() {
+    int virtAddr = machine->ReadRegister(4);
+    char *fileName = User2System(virtAddr, MAX_FILENAME_LENGTH);
+
+    if (strlen(fileName) == 0) {
+        printf("\nEmpty Filename");
+
+        machine->WriteRegister(2, -1);
+        delete[] fileName;
+        return;
+    }
+
+    if (strlen(fileName) >= MAX_FILENAME_LENGTH) {
+        printf("\nFile name exceeds length limit");
+        DEBUG(dbgCustom, "\n file name: %s", fileName);
+
+        machine->WriteRegister(2, -1);
+        delete[] fileName;
+        return;
+    }
+
+    //  Create file with size = 0
+    if (!fileSystem->Create(fileName, 0)) {
+        printf("\nError creating file '%s'", fileName);
+
+        machine->WriteRegister(2, -1);
+        delete[] fileName;
+        return;
+    }
+
+    // Success
+    DEBUG(dbgCustom, "\nCreated \"%s\"", fileName);
+
+    machine->WriteRegister(2, 0);
+    delete[] fileName;
+}
+
+/**
+ * @brief Handle OpenFile syscall
+ * 
+ * @input:
+ *  - r4 (addr): name
+ *  - r5 (int): access type (0: read & write, 1: read-only)
+ * @output:
+ *  - r2: OpenFileId or -1 if failed
+ * 
+ * @ref schandle.rar -> schandle.cc
+ */
+void HandleOpenSyscall() {
+    int virtAddr = machine->ReadRegister(4);
+    int accessType = machine->ReadRegister(5);
+
+    // Check if access type is valid
+    if (accessType != READ_WRITE && accessType != READ_ONLY) {
+        printf("\nInvalid access type");
+
+        machine->WriteRegister(2, -1);
+        return;
+    }
+
+    // Check if file name is valid
+    char *fileName = User2System(virtAddr, MAX_FILENAME_LENGTH);
+
+    if (strlen(fileName) == 0 || strlen(fileName) >= MAX_FILENAME_LENGTH) {
+        printf("\nInvalid file name");
+
+        machine->WriteRegister(2, -1);
+        delete[] fileName;
+        return;
+    }
+
+    // Check if file descriptor table have any free slot
+    if (currentThread->fTab->IsFull()) {
+        printf("\nExceed opened files limit");
+
+        machine->WriteRegister(2, -1);
+        delete[] fileName;
+        return;
+    }
+
+    // Check if file exists
+    OpenFile *file = fileSystem->Open(fileName);
+
+    if (file == NULL) {
+        printf("\nError opening file:  %s", fileName);
+
+        machine->WriteRegister(2, -1);
+        delete fileName;
+        return;
+    }
+
+    int fileID = currentThread->fTab->Add(file, accessType);
+
+    // Success
+    DEBUG(dbgCustom, "\nOpened \"%s\"", fileName);
+
+    machine->WriteRegister(2, fileID);
+    delete[] fileName;
+}
+
+/**
+ * @brief Handle CloseFile syscall
+ * 
+ * @input:
+ * - r4 (int): OpenFileId
+ * @output:
+ * - r2: 0 if successful, -1 if failed
+ */
+void HandleCloseSyscall() {
+    int id = machine->ReadRegister(4);    
+
+    // File is automatically closed when being removed from the table
+    if (!currentThread->fTab->Remove(id)) {
+        machine->WriteRegister(2, -1);
+        return;
+    }
+
+    // Success
+    DEBUG(dbgCustom, "\nClosed file with ID: %d", id);
+    machine->WriteRegister(2, 0);
+}
+
+void HandleReadSyscall() {
+
+}
+
+void HandleWriteSyscall() {
+
+}
+
 //----------------------------------------------------------------------
 // Each individual exception handler
 //----------------------------------------------------------------------
 void HandleSyscallException() {
-    // Read the type of system call from the register
+    // Read the type file system call from the register
     int type = machine->ReadRegister(2);
 
     switch (type) {
@@ -252,15 +394,27 @@ void HandleSyscallException() {
     case SC_PrintString:
         HandlePrintStringSyscall();
         break;
+    
+    case SC_CreateFile:
+        HandleCreateFileSyscall();
+        break;
+    case SC_Open:
+        HandleOpenSyscall();
+        break;
+    case SC_Close:
+        HandleCloseSyscall();
+        break;
+    case SC_Read:
+        HandleReadSyscall();
+        break;
+    case SC_Write:
+        HandleWriteSyscall();
+        break;
 
     // All the system calls below has not been implemented
     case SC_Exit:
     case SC_Exec:
     case SC_Join:
-    case SC_Create:
-    case SC_Open:
-    case SC_Write:
-    case SC_Close:
     case SC_Fork:
     case SC_Yield:
         printf("\nUnimplemented system call. Code: %d\n", type);
@@ -278,43 +432,43 @@ void HandleSyscallException() {
 }
 
 void HandlePageFaultException() {
-    DEBUG('a', "\nPage fault exception.");
+    DEBUG(dbgCustom, "\nPage fault exception.");
     printf("\nNo valid translation found.\n");
     interrupt->Halt();
 }
 
 void HandleReadOnlyException() {
-    DEBUG('a', "\nRead-only exception.");
+    DEBUG(dbgCustom, "\nRead-only exception.");
     printf("\nWrite attempted to page marked \"read-only\".\n");
     interrupt->Halt();
 }
 
 void HandleBusErrorException() {
-    DEBUG('a', "\nBus error exception.");
+    DEBUG(dbgCustom, "\nBus error exception.");
     printf("\nTranslation resulted in an invalid physical address.\n");
     interrupt->Halt();
 }
 
 void HandleAddressErrorException() {
-    DEBUG('a', "\nAddress error exception.");
-    printf("\nUnaligned reference or one that was beyond the end of the address space.\n");
+    DEBUG(dbgCustom, "\nAddress error exception.");
+    printf("\nUnaligned reference or one that was beyond the end file the address space.\n");
     interrupt->Halt();
 }
 
 void HandleOverflowException() {
-    DEBUG('a', "\nOverflow exception.");
+    DEBUG(dbgCustom, "\nOverflow exception.");
     printf("\nInteger overflow in add or sub.\n");
     interrupt->Halt();
 }
 
 void HandleIllegalInstrException() {
-    DEBUG('a', "\nIllegal instruction exception.");
+    DEBUG(dbgCustom, "\nIllegal instruction exception.");
     printf("\nUnimplemented or reserved instruction.\n");
     interrupt->Halt();
 }
 
 void HandleNumExceptionTypes() {
-    DEBUG('a', "\nNumber exception types.");
+    DEBUG(dbgCustom, "\nNumber exception types.");
     printf("\nNumber exception types.\n");
     interrupt->Halt();
 }
