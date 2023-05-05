@@ -2,6 +2,9 @@
 
 #include "console.h"
 
+#ifndef SYNCHCONSOLE_H
+#define SYNCHCONSOLE_H
+
 class SynchConsole {
 public:
 	SynchConsole();				// A SynchConsole Constructor
@@ -17,3 +20,4 @@ private:
 
 // CAE - MULTI - END SECTION
 
+#endif /* SYNCHCONSOLE_H */
