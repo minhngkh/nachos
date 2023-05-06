@@ -330,7 +330,7 @@ void HandleOpenSyscall() {
 }
 
 /**
- * @brief Handle CloseFile syscall
+ * @brief Handle Close syscall
  * 
  * @input:
  * - r4 (int): OpenFileId
@@ -351,12 +351,95 @@ void HandleCloseSyscall() {
     machine->WriteRegister(2, 0);
 }
 
+/**
+ * @brief Handle Read syscall
+ * 
+ * @input:
+ *  - r4 (addr): buffer to write to
+ *  - r5 (int): char count
+ *  - r6 (OpenFileId): file ID
+ * @output:
+ *  - r2: number of bytes read or -1 if failed, -2 if reached EOF
+ */
 void HandleReadSyscall() {
+    int virtAddr = machine->ReadRegister(4);
+    int size = machine->ReadRegister(5);
+    int id = machine->ReadRegister(6);
 
+    // Check if buffer is valid
+    if (size <= 0) {
+        DEBUG(dbgCustom, "\nInvalid buffer size");
+
+        machine->WriteRegister(2, -1);
+        return;
+    }
+
+    // +1 to reserve space for nul terminator
+    char *temp = new char[size + 1];
+    memset(temp, 0, size + 1);
+    
+    int actualSize = currentThread->fTab->Read(temp, size, id);
+
+    // Failed
+    if (actualSize == -1) {
+        machine->WriteRegister(2, -1);
+        delete[] temp;
+        return;
+    }
+    // Reach EOF
+    if (actualSize == 0) {
+        machine->WriteRegister(2, -2);
+        delete[] temp;
+        return;
+    }
+
+    // again, +1 to reserve space for null terminator
+    System2User(virtAddr, actualSize + 1, temp);
+
+    delete[] temp;
+    machine->WriteRegister(2, actualSize);
 }
 
+/**
+ * @brief Handle Write syscall
+ * 
+ * @input:
+ * - r4 (addr): buffer to read from
+ * - r5 (int): char count
+ * - r6 (OpenFileId): file ID
+ * @output:
+ * - r2: number of bytes written or -1 if failed
+ * 
+ */
 void HandleWriteSyscall() {
+    int virtAddr = machine->ReadRegister(4);
+    int size = machine->ReadRegister(5);
+    int id = machine->ReadRegister(6);
 
+    // Check if buffer is valid
+    if (size <= 0) {
+        DEBUG(dbgCustom, "\nInvalid buffer size");
+
+        machine->WriteRegister(2, -1);
+        return;
+    }
+
+    char *temp = User2System(virtAddr, size);
+    
+
+    int actualSize = currentThread->fTab->Write(temp, size, id);
+
+    // Failed
+    if (actualSize == -1) {
+        machine->WriteRegister(2, -1);
+        delete[] temp;
+        return;
+    }
+
+    DEBUG(dbgCustom, "\nWrote %d bytes to file with ID: %d\n", actualSize, id);
+
+    delete[] temp;
+    machine->WriteRegister(2, actualSize);
 }
 
 //----------------------------------------------------------------------

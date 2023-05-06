@@ -103,11 +103,9 @@ bool FDTable::Remove(OpenFileID id) {
 
 int FDTable::Read(char *buffer, int charcount, OpenFileID id) {
     if (id < 0 || id >= TABLE_SIZE) {
-        return -1;
-    }
+        printf("\nInvalid ID");
+        DEBUG(dbgCustom, ": %d", id);
 
-    if (table[id].accessType == WRITE_ONLY) {
-        DEBUG(dbgCustom, "Doesn't have read access");
         return -1;
     }
 
@@ -115,21 +113,45 @@ int FDTable::Read(char *buffer, int charcount, OpenFileID id) {
         return gSynchConsole->Read(buffer, charcount);
     }
 
+    if (table[id].file == nullptr) {
+        printf("\nFile not found");
+        DEBUG(dbgCustom, " - ID: %d", id);
+
+        return -1;
+    }
+
+    if (table[id].accessType == WRITE_ONLY) {
+        printf("\nAccess denied");
+        DEBUG(dbgCustom, " - ID: %d", id);
+        return -1;
+    }
+
     return table[id].file->Read(buffer, charcount);
 }
 
 int FDTable::Write(char *buffer, int charcount, OpenFileID id) {
     if (id < 0 || id >= TABLE_SIZE) {
-        return -1;
-    }
+        printf("\nInvalid ID");
+        DEBUG(dbgCustom, ": %d", id);
 
-    if (table[id].accessType == READ_ONLY) {
-        DEBUG(dbgCustom, "Doesn't have write access");
         return -1;
     }
 
     if (id == STDOUT) {
         return gSynchConsole->Write(buffer, charcount);
+    }
+
+    if (table[id].file == nullptr) {
+        printf("\nFile not found");
+        DEBUG(dbgCustom, " - ID: %d", id);
+
+        return -1;
+    }
+
+    if (table[id].accessType == READ_ONLY) {
+        printf("\nAccess denied");
+        DEBUG(dbgCustom, " - ID: %d", id);
+        return -1;
     }
 
     return table[id].file->Write(buffer, charcount);
