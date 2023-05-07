@@ -43,7 +43,6 @@
 #ifdef USER_PROGRAM
 #include "machine.h"
 #include "addrspace.h"
-#include "FDTable.h"
 #endif
 
 // CPU register state to be saved on context switch.  
@@ -128,7 +127,6 @@ class Thread {
     void RestoreUserState();		// restore user-level register state
 
     AddrSpace *space;			// User code this thread is running.
-    FDTable *fTab;  // File descriptor table for this thread
 #endif
 };
 

@@ -301,7 +301,7 @@ void HandleOpenSyscall() {
     }
 
     // Check if file descriptor table have any free slot
-    if (currentThread->fTab->IsFull()) {
+    if (fTab->IsFull()) {
         printf("\nExceed opened files limit");
 
         machine->WriteRegister(2, -1);
@@ -320,7 +320,7 @@ void HandleOpenSyscall() {
         return;
     }
 
-    int fileID = currentThread->fTab->Add(file, accessType);
+    int fileID = fTab->Add(file, accessType);
 
     // Success
     DEBUG(dbgCustom, "\nOpened \"%s\"", fileName);
@@ -341,7 +341,7 @@ void HandleCloseSyscall() {
     int id = machine->ReadRegister(4);    
 
     // File is automatically closed when being removed from the table
-    if (!currentThread->fTab->Remove(id)) {
+    if (!fTab->Remove(id)) {
         machine->WriteRegister(2, -1);
         return;
     }
@@ -378,7 +378,7 @@ void HandleReadSyscall() {
     char *temp = new char[size + 1];
     memset(temp, 0, size + 1);
     
-    int actualSize = currentThread->fTab->Read(temp, size, id);
+    int actualSize = fTab->Read(temp, size, id);
 
     // Failed
     if (actualSize == -1) {
@@ -427,7 +427,7 @@ void HandleWriteSyscall() {
     char *temp = User2System(virtAddr, size);
     
 
-    int actualSize = currentThread->fTab->Write(temp, size, id);
+    int actualSize = fTab->Write(temp, size, id);
 
     // Failed
     if (actualSize == -1) {
