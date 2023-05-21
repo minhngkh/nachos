@@ -18,26 +18,28 @@
 /* system call codes -- used by the stubs to tell the kernel which system call
  * is being asked for
  */
-#define SC_Halt         0
-#define SC_Exit         1
-#define SC_Exec         2
-#define SC_Join         3
-#define SC_Create       4
-#define SC_Open         5
-#define SC_Read         6
-#define SC_Write        7
-#define SC_Close        8
-#define SC_Fork         9
-#define SC_Yield        10
+#define SC_Halt             0
+#define SC_Exit             1
+#define SC_Exec             2
+#define SC_Join             3
+#define SC_CreateFile       4
+#define SC_Open             5
+#define SC_Read             6
+#define SC_Write            7
+#define SC_Close            8
+#define SC_Fork             9
+#define SC_Yield            10
 
-#define SC_ReadInt      11
-#define SC_PrintInt     12
-#define SC_ReadChar     13
-#define SC_PrintChar    14
-#define SC_ReadString   15
-#define SC_PrintString  16
+#define SC_ReadInt          11
+#define SC_PrintInt         12
+#define SC_ReadChar         13
+#define SC_PrintChar        14
+#define SC_ReadString       15
+#define SC_PrintString      16
 
-#define SC_CreateFile 17
+#define SC_CreateSemaphore  17
+#define SC_Wait             18
+#define SC_Signal           19
 
 #ifndef IN_ASM
 
@@ -98,7 +100,7 @@ typedef int OpenFileId;
 #define ConsoleOutput	1  
  
 /* Create a Nachos file, with "name" */
-void CreateFile(char *name);
+int CreateFile(char *name);
 
 /* Open the Nachos file "name" with "type" 0 (read & write) or 1 (read-only), and return an
  * "OpenFileId" that can be used to read and write to the file.
@@ -158,6 +160,17 @@ void ReadString(char buffer[], int length);
 
 /* Print a string to the console. */
 void PrintString(char buffer[]);
+
+
+/* Semaphore operations: CreateSemaphore, Wait, Signal
+ */
+
+/* Create a semaphore with "name" and initial value of "semval"*/
+int CreateSemaphore(char* name, int semval);
+
+int Wait(char *name);
+
+int Signal(char *name);
 
 
 #endif /* IN_ASM */

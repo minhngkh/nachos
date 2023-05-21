@@ -29,6 +29,7 @@
 
 #define BUFFER_SIZE 256
 #define MAX_FILENAME_LENGTH 255
+#define MAX_SEMAPHORE_NAME_LENGTH 50
 
 //----------------------------------------------------------------------
 // Helper functions
@@ -40,7 +41,7 @@
  * @param virtAddr User memory space address
  * @param limit Limit of buffer
  * @return char* Kernel buffer
- * 
+ *
  * @ref [3] Cach Viet Mot SystemCall.pdf
  */
 char *User2System(int virtAddr, int limit) {
@@ -75,7 +76,7 @@ char *User2System(int virtAddr, int limit) {
  * @param len Length of buffer
  * @param buffer Kernel buffer
  * @return int Number of bytes copied
- * 
+ *
  * @ref [3] Cach Viet Mot SystemCall-1.pdf
  */
 int System2User(int virtAddr, int len, char *buffer) {
@@ -218,15 +219,14 @@ void HandlePrintStringSyscall() {
     }
 }
 
-
 /**
  * @brief Handle CreateFile syscall
- * 
+ *
  * @input:
- *  - r4 (addr): name 
+ *  - r4 (addr): name
  * @output:
  *  - r2: 0 if successful, -1 if failed
- * 
+ *
  * @ref schandle.rar -> schandle.cc
  */
 void HandleCreateFileSyscall() {
@@ -268,13 +268,13 @@ void HandleCreateFileSyscall() {
 
 /**
  * @brief Handle OpenFile syscall
- * 
+ *
  * @input:
  *  - r4 (addr): name
  *  - r5 (int): access type (0: read & write, 1: read-only)
  * @output:
  *  - r2: OpenFileId or -1 if failed
- * 
+ *
  * @ref schandle.rar -> schandle.cc
  */
 void HandleOpenSyscall() {
@@ -331,14 +331,14 @@ void HandleOpenSyscall() {
 
 /**
  * @brief Handle Close syscall
- * 
+ *
  * @input:
  * - r4 (int): OpenFileId
  * @output:
  * - r2: 0 if successful, -1 if failed
  */
 void HandleCloseSyscall() {
-    int id = machine->ReadRegister(4);    
+    int id = machine->ReadRegister(4);
 
     // File is automatically closed when being removed from the table
     if (!fTab->Remove(id)) {
@@ -353,7 +353,7 @@ void HandleCloseSyscall() {
 
 /**
  * @brief Handle Read syscall
- * 
+ *
  * @input:
  *  - r4 (addr): buffer to write to
  *  - r5 (int): char count
@@ -377,7 +377,7 @@ void HandleReadSyscall() {
     // +1 to reserve space for nul terminator
     char *temp = new char[size + 1];
     memset(temp, 0, size + 1);
-    
+
     int actualSize = fTab->Read(temp, size, id);
 
     // Failed
@@ -402,14 +402,14 @@ void HandleReadSyscall() {
 
 /**
  * @brief Handle Write syscall
- * 
+ *
  * @input:
  * - r4 (addr): buffer to read from
  * - r5 (int): char count
  * - r6 (OpenFileId): file ID
  * @output:
  * - r2: number of bytes written or -1 if failed
- * 
+ *
  */
 void HandleWriteSyscall() {
     int virtAddr = machine->ReadRegister(4);
@@ -425,7 +425,6 @@ void HandleWriteSyscall() {
     }
 
     char *temp = User2System(virtAddr, size);
-    
 
     int actualSize = fTab->Write(temp, size, id);
 
@@ -440,6 +439,112 @@ void HandleWriteSyscall() {
 
     delete[] temp;
     machine->WriteRegister(2, actualSize);
+}
+
+void HandleExecSyscall() {
+    int virtAddr = machine->ReadRegister(4);
+
+    char *fileName = User2System(virtAddr, MAX_FILENAME_LENGTH);
+    if (strlen(fileName) == 0 || strlen(fileName) >= MAX_FILENAME_LENGTH) {
+        printf("\nInvalid file name");
+
+        machine->WriteRegister(2, -1);
+        delete[] fileName;
+        return;
+    }
+
+    OpenFile *file = fileSystem->Open(fileName);
+    if (file == NULL) {
+        printf("\nError opening file:  %s", fileName);
+
+        machine->WriteRegister(2, -1);
+        delete[] fileName;
+        return;
+    }
+
+    int pid = pTab->ExecUpdate(fileName);
+    machine->WriteRegister(2, pid);
+
+    delete[] fileName;
+}
+
+void HandleJoinSyscall() {
+    int id = machine->ReadRegister(4);
+    int ec = pTab->JoinUpdate(id);
+
+    machine->WriteRegister(2, ec);
+}
+
+void HandleExitSyscall() {
+    int ec = machine->ReadRegister(4);
+    pTab->ExitUpdate(ec);
+}
+
+void HandleCreateSemaphoreSyscall() {
+    int virtAddr = machine->ReadRegister(4);
+    int semval = machine->ReadRegister(5);
+
+    char *name = User2System(virtAddr, MAX_SEMAPHORE_NAME_LENGTH);
+    if (strlen(name) == 0 || strlen(name) >= MAX_SEMAPHORE_NAME_LENGTH) {
+        printf("\nInvalid semaphore name");
+
+        machine->WriteRegister(2, -1);
+        delete[] name;
+        return;
+    }
+
+    int ec = semTab->Create(name, semval);
+
+    if (ec == -1) {
+        DEBUG(dbgCustom, "\nError creating semaphore: %s", name);
+    }
+
+    delete[] name;
+    machine->WriteRegister(2, ec);
+}
+
+void HandleWaitSyscall() {
+    int virtAddr = machine->ReadRegister(4);
+
+    char *name = User2System(virtAddr, MAX_SEMAPHORE_NAME_LENGTH);
+    if (strlen(name) == 0 || strlen(name) >= MAX_SEMAPHORE_NAME_LENGTH) {
+        printf("\nInvalid semaphore name");
+
+        machine->WriteRegister(2, -1);
+        delete[] name;
+        return;
+    }
+
+    int ec = semTab->Wait(name);
+
+    if (ec == -1) {
+        DEBUG(dbgCustom, "\nNo such semaphore: %s", name);
+    }
+
+    delete[] name;
+    machine->WriteRegister(2, ec);
+}
+
+void HandleSignalSyscall() {
+    int virtAddr = machine->ReadRegister(4);
+
+    char *name = User2System(virtAddr, MAX_SEMAPHORE_NAME_LENGTH);
+    if (strlen(name) == 0 || strlen(name) >= MAX_SEMAPHORE_NAME_LENGTH) {
+        printf("\nInvalid semaphore name");
+
+        machine->WriteRegister(2, -1);
+        delete[] name;
+        return;
+    }
+
+    int ec = semTab->Signal(name);
+
+    if (ec == -1) {
+        DEBUG(dbgCustom, "\nNo such semaphore: %s", name);
+    }
+
+    delete[] name;
+    machine->WriteRegister(2, ec);
 }
 
 //----------------------------------------------------------------------
@@ -477,27 +582,52 @@ void HandleSyscallException() {
     case SC_PrintString:
         HandlePrintStringSyscall();
         break;
-    
+
     case SC_CreateFile:
         HandleCreateFileSyscall();
         break;
+
     case SC_Open:
         HandleOpenSyscall();
         break;
+
     case SC_Close:
         HandleCloseSyscall();
         break;
+
     case SC_Read:
         HandleReadSyscall();
         break;
+
     case SC_Write:
         HandleWriteSyscall();
         break;
 
-    // All the system calls below has not been implemented
-    case SC_Exit:
     case SC_Exec:
+        HandleExecSyscall();
+        break;
+
     case SC_Join:
+        HandleJoinSyscall();
+        break;
+
+    case SC_Exit:
+        HandleExitSyscall();
+        break;
+
+    case SC_CreateSemaphore:
+        HandleCreateSemaphoreSyscall();
+        break;
+
+    case SC_Wait:
+        HandleWaitSyscall();
+        break;
+
+    case SC_Signal:
+        HandleSignalSyscall();
+        break;
+
+    // All the system calls below has not been implemented
     case SC_Fork:
     case SC_Yield:
         printf("\nUnimplemented system call. Code: %d\n", type);

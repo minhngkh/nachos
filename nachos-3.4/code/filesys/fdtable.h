@@ -39,10 +39,6 @@ class FDTable {
     FileDescriptor table[TABLE_SIZE];
 
     int FindFreeSlot();
-    int FindFile(char *name);
-    int FindFile(OpenFile *file);
-    void Expand();
-    void Shrink();
 };
 
 #endif /* FDTABLE_H */

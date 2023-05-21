@@ -317,4 +317,17 @@ Thread::RestoreUserState()
     for (int i = 0; i < NumTotalRegs; i++)
 	machine->WriteRegister(i, userRegisters[i]);
 }
+
+//----------------------------------------------------------------------
+// Thread::FreeSpace
+//	Free the space allocated for the user stack.
+//----------------------------------------------------------------------
+
+void 
+Thread::FreeSpace() 
+{
+    if (space != NULL) {
+        delete space;
+    }
+}
 #endif

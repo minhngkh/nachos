@@ -81,6 +81,8 @@ class Thread {
     int machineState[MachineStateSize];  // all registers except for stackTop
 
   public:
+    int processID = 0; // ID of the process
+
     Thread(char* debugName);		// initialize a Thread 
     ~Thread(); 				// deallocate a Thread
 					// NOTE -- thread being deleted
@@ -125,6 +127,8 @@ class Thread {
   public:
     void SaveUserState();		// save user-level register state
     void RestoreUserState();		// restore user-level register state
+
+    void FreeSpace(); // free the address space
 
     AddrSpace *space;			// User code this thread is running.
 #endif

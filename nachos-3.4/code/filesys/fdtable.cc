@@ -1,4 +1,4 @@
-#include "FDTable.h"
+#include "fdtable.h"
 
 #include "system.h"
 
@@ -14,7 +14,7 @@ FDTable::FDTable() {
 
 FDTable::~FDTable() {
     for (int i = 0; i < TABLE_SIZE; i++) {
-        if (table[i].file != nullptr) {
+        if (table[i].file) {
             delete table[i].file;
         }
     }
@@ -90,7 +90,6 @@ bool FDTable::Remove(OpenFileID id) {
         return false;
     }
 
-
     if (table[id].file != nullptr) {
         // OpenFile class have destructor that closes the file when the instance is deleted
         delete table[id].file;
@@ -154,5 +153,5 @@ int FDTable::Write(char *buffer, int charcount, OpenFileID id) {
         return -1;
     }
 
-    return table[id].file->Write(buffer, charcount);
+    return table[id].file->Write(buffer, strlen(buffer) < charcount ? strlen(buffer) : charcount);
 }
